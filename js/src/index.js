@@ -3,7 +3,8 @@
  * アプリケーション本体ファイル
  *
  * @charset utf-8
- * @dependency jQuery v1.8.2 <http://jquery.com/>
+ * @dependency Sugar.js v1.3.6 <http://sugarjs.com/>
+ *             jQuery v1.8.2 <http://jquery.com/>
  *             JSDeferred v0.4 <http://cho45.stfuawsc.com/jsdeferred/>
  */
 //
