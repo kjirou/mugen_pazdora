@@ -1,11 +1,11 @@
 // vim: set foldmethod=marker :
 /**
- * アプリケーション本体ファイル
+ * Mugen-Pazdora
  *
- * @charset utf-8
  * @dependency Sugar.js v1.3.6 <http://sugarjs.com/>
- *             jQuery v1.8.2 <http://jquery.com/>
  *             JSDeferred v0.4 <http://cho45.stfuawsc.com/jsdeferred/>
+ *             jQuery v1.8.2 <http://jquery.com/>
+ *             jQuery UI v1.9.1 <http://jqueryui.com/download/>
  */
 var $e = {
     deviceType: 'pc'
@@ -73,6 +73,10 @@ $a.Board = (function(){
 
     /** [cols, rows] */
     cls.EXTENT = [6, 5];
+
+    cls.ZINDEXES = {};
+    cls.ZINDEXES.HIGHEST_BALL = 100;
+    cls.ZINDEXES.BALL = 1;
 
     function __INITIALIZE(self){
         cls.EXTENT[1].times(function(rowIndex){
@@ -165,13 +169,17 @@ $a.Ball = (function(){
 
         this.type = undefined;
 
-        this.isCaught = false;
+        this._isDragging = false;
 
         this._view = $('<div />').css({
             position: 'absolute',
             width: cls.SIZE[0],
             height: cls.SIZE[1]//,
-        });
+        }).draggable({
+            opacity: 0.5
+        }).bind('mousedown', {self:this}, __ONMOUSEDOWN)
+            .bind('mouseup', {self:this}, __ONMOUSEUP)
+            .bind('drag', {self:this}, __ONDRAG);
     };
 
     /** [width, height] */
@@ -237,6 +245,20 @@ $a.Ball = (function(){
     };
 
     cls.prototype.getView = function(){ return this._view };
+
+    function __ONMOUSEDOWN(evt){
+        var self = evt.data.self;
+        self._isDragging = true;
+        self._view.css({ zIndex:$a.Board.ZINDEXES.HIGHEST_BALL });
+    }
+    function __ONMOUSEUP(evt){
+        var self = evt.data.self;
+        self._isDragging = false;
+        self._view.css({ zIndex:$a.Board.ZINDEXES.BALL });
+    }
+    function __ONDRAG(evt){
+        var self = evt.data.self;
+    }
 
     cls.factory = function(){
         var obj = new this();
