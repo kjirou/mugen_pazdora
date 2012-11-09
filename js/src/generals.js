@@ -12,14 +12,18 @@ $f.consoleLog = function(){
     };
 };
 
-$f.randInt = function(min, max){
-    if (min > max) throw new Error(arguments.callee);
-    var span = max - min;
-    return min + parseInt(Math.random() * (span + 1));
-};
+//$f.withinNum = function(value, min, max){
+//    if (min !== null && min !== undefined && min > value) return min;
+//    if (max !== null && max !== undefined && max < value) return max;
+//    return value;
+//};
 
 $f.randChoice = function(arr){
-    return arr[$f.randInt(0, arr.length - 1)];
+    return arr[Number.random(0, arr.length - 1)];
+};
+
+$f.pointsToDistance = function(a, b){
+    return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
 };
 
 //{{{
@@ -308,13 +312,6 @@ $f.randChoice = function(arr){
 //$f.randGaussLike = function(min, max){
 //    var delta = max - min;
 //    return (Math.random() * delta + Math.random() * delta) / 2 + min;
-//};
-//
-///** 数値を範囲内の値に収めて返す, それぞれ null || undefined で指定しない */
-//$f.withinNum = function(value, min, max){
-//    if (min !== null && min !== undefined && min > value) return min;
-//    if (max !== null && max !== undefined && max < value) return max;
-//    return value;
 //};
 //
 ///** 数値AがBより超過／以上／等しい／以下／未満かを判定する */
