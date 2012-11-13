@@ -135,6 +135,12 @@ $a.Board = (function(){
         });
     }
 
+    cls.prototype.startDisappearingBalls = function(){
+        var matcher = $a.Matcher.factory();
+        matcher.match(this._squares);
+        $d(matcher);
+    }
+
     cls.prototype.getWidth = function(){
         return $a.Ball.SIZE[0] * cls.EXTENT[0];
     }
@@ -318,6 +324,97 @@ $a.Pointer = (function(){
                 a[2] <= pageX && pageX < a[2] + a[3]) return a[0];
         }
         return cls.KEY_DEFAULT;
+    }
+
+    cls.factory = function(){
+        var obj = new this();
+        return obj;
+    }
+
+    return cls;
+})();
+
+
+$a.Matcher = (function(){
+    var cls = function(){
+        this._ballSets = [];
+        this._combos = [];
+    }
+
+    cls.prototype.match = function(squares){
+
+        // Pick ball sets
+        var self = this;
+        $a.Board.EXTENT[1].times(function(rowIndex){
+            var ballSets = __pickBallSets(squares[rowIndex].slice(), 'row', rowIndex);
+            self._ballSets = self._ballSets.concat(ballSets);
+        });
+        $a.Board.EXTENT[0].times(function(columnIndex){
+            var squaresOnLine = squares.map(function(v){ return v[columnIndex] });
+            var ballSets = __pickBallSets(squaresOnLine, 'column', columnIndex);
+            self._ballSets = self._ballSets.concat(ballSets);
+        });
+
+        // Ball sets to combos
+
+            // .. join ball sets
+
+            // .. sort
+    }
+
+    /**
+     * Pick 3-matched ball sets in board for each a line
+     *
+     * @param arr squaresOnLine Line of board._squares[n] that sliced vertical or horizontal
+     * @param str direction 'row' | 'column'
+     * @param int rowOrColumnIndex
+     * @return arr ex) [{ type:'aqua', indexes:[[0, 1], [0, 2], [0, 3], [0, 4]]}, ..]
+     */
+    function __pickBallSets(squaresOnLine, direction, rowOrColumnIndex){
+
+        // Check 3-match pattern
+        // ex) [daaaaf] => [['aqua', 1, 4]]
+        //     [dddrrr] =>  [['dark', 0, 3], ['red', 3, 3]]
+        var matches = [];
+        var preBallType = null;
+        var count = 1;
+        squaresOnLine.push(null); // For end of loop
+        squaresOnLine.each(function(square, i){
+            var ballType = (square !== null)? square.type: null;
+
+            if (ballType !== preBallType) {
+                if (count >= 3) {
+                    matches.push([preBallType, i - count, count]);
+                }
+                preBallType = ballType;
+                count = 1;
+            } else {
+                if (ballType !== null) {
+                    count += 1;
+                }
+            }
+        });
+
+        // Match results to ball indexes
+        // ex) [['aqua', 1, 4]] => { type:'aqua', indexes:[[0, 1], [0, 2], [0, 3], [0, 4]]}
+        var ballSets = [];
+        matches.each(function(m){
+            var set = [m[0], []];
+            var set = {
+                type: m[0],
+                indexes: []
+            };
+            m[2].times(function(i){
+                if (direction === 'row') {
+                    set.indexes.push([rowOrColumnIndex, m[1] + i]);
+                } else if (direction === 'column') {
+                    set.indexes.push([m[1] + i, rowOrColumnIndex]);
+                }
+            });
+            ballSets.push(set)
+        });
+
+        return ballSets;
     }
 
     cls.factory = function(){
