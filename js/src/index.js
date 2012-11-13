@@ -99,8 +99,9 @@ $a.Board = (function(){
         var ballA = this.getBall(a);
         var idxA = ballA.getIndex().slice();
         var ballB = this.getBall(b);
-        ballA.setIndex(ballB.getIndex().slice());
-        ballB.setIndex(idxA);
+        var idxB = ballB.getIndex().slice();
+        this._setBall(ballA, idxB);
+        this._setBall(ballB, idxA);
     }
 
     cls.prototype.getSquare = function(idx){
@@ -120,8 +121,7 @@ $a.Board = (function(){
         return ball;
     }
 
-    cls.prototype._appendBall = function(idx){
-        var ball = $a.Ball.factory();
+    cls.prototype._setBall = function(ball, idx){
         ball.setIndex(idx);
         this._squares[idx[0]][idx[1]] = ball;
         this._view.append(ball.getView());
@@ -130,7 +130,8 @@ $a.Board = (function(){
     cls.prototype.resetBalls = function(){
         var self = this;
         this.eachSquare(function(v, i, idx){
-            self._appendBall(idx);
+            var ball = $a.Ball.factory();
+            self._setBall(ball, idx);
         });
     }
 
@@ -172,6 +173,7 @@ $a.Board = (function(){
 
 $a.Ball = (function(){
     var cls = function(){
+        var self = this;
 
         /** [rowIndex, columnIndex] */
         this._index = [undefined, undefined];
@@ -183,12 +185,13 @@ $a.Ball = (function(){
         this._view = $('<div />').css({
             position: 'absolute',
             width: cls.SIZE[0],
-            height: cls.SIZE[1]//,
+            height: cls.SIZE[1],
+            zIndex: $a.Board.ZINDEXES.BALL//,
         }).draggable({
-            opacity: 0.5
-        }).bind('mousedown', {self:this}, __ONMOUSEDOWN)
-            .bind('mouseup', {self:this}, __ONMOUSEUP)
-            .bind('drag', {self:this}, __ONDRAG);
+            opacity: 0.5,
+            start: function(evt){ return __ONDRAGSTART(evt, self) },
+            stop: function(evt){ return __ONDRAGSTOP(evt, self) }
+        }).bind('drag', {self:this}, __ONDRAG);
     }
 
     /** [width, height] */
@@ -249,26 +252,40 @@ $a.Ball = (function(){
         this._view.css({
             top: this.getTop(),
             left: this.getLeft(),
-            backgroundColor: master.styles.backgroundColor
+            backgroundColor: master.styles.backgroundColor,
+            zIndex: $a.Board.ZINDEXES.BALL
         });
     }
 
     cls.prototype.getView = function(){ return this._view }
 
-    function __ONMOUSEDOWN(evt){
-        var self = evt.data.self;
+    function __ONDRAGSTART(evt, self){
         self._isDragging = true;
         self._view.css({ zIndex:$a.Board.ZINDEXES.HIGHEST_BALL });
     }
-    function __ONMOUSEUP(evt){
-        var self = evt.data.self;
+    function __ONDRAGSTOP(evt, self){
         self._isDragging = false;
-        self._view.css({ zIndex:$a.Board.ZINDEXES.BALL });
+        self.draw();
     }
     function __ONDRAG(evt){
         var self = evt.data.self;
-        var idx = $a.pointer.at(evt.pageY, evt.pageX);
-        $(evt.target).text(idx);
+        var areaKey = self.getIndex().join(',');
+        var nextAreaKey = $a.pointer.at(evt.pageY, evt.pageX);
+        //$(evt.target).text(nextAreaKey + '/' + areaKey);
+
+        if (nextAreaKey === areaKey) return true;
+        if (nextAreaKey === '__default__') return false;
+
+        var orgIdx = nextAreaKey.split(',').map(function(v){ return parseInt(v) });
+        var idx = orgIdx.slice();
+        if (idx[0] === -1) idx[0] = 0;
+        if (idx[1] === -1) idx[1] = 0;
+        var ball = $a.board.getBall(idx);
+
+        $a.board.exchangeBalls(self.getIndex(), ball.getIndex());
+        ball.draw();
+
+        return true;
     }
 
     cls.factory = function(){
@@ -326,11 +343,20 @@ $a.screen.getView().append($a.board.getView());
 
 $a.pointer = $a.Pointer.factory();
 $a.board.eachSquare(function(ball, notuse, idx){
+    var key = idx.join(',');
     var top = ball.getTop() + $a.Board.POS[0];
     var left = ball.getLeft() + $a.Board.POS[1];
     var width = $a.Ball.SIZE[0];
     var height = $a.Ball.SIZE[1];
-    $a.pointer.setArea(idx.slice(), top, left, width, height);
+    $a.pointer.setArea(key, top, left, width, height);
+});
+$a.Board.EXTENT[0].times(function(i){
+    var key = [-1, i].join(',');
+    var top = 0;
+    var left = $a.Ball.SIZE[0] * i;
+    var width = $a.Ball.SIZE[0];
+    var height = $a.Board.POS[0];
+    $a.pointer.setArea(key, top, left, width, height);
 });
 
 return Deferred.next();
