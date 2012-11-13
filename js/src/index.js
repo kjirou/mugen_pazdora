@@ -6,6 +6,7 @@
  *             JSDeferred v0.4 <http://cho45.stfuawsc.com/jsdeferred/>
  *             jQuery v1.8.2 <http://jquery.com/>
  *             jQuery UI v1.9.1 <http://jqueryui.com/download/>
+ *             jQuery UI Touch Punch v0.2.2 <http://touchpunch.furf.com/>
  */
 var $e = {
     deviceType: 'pc'
@@ -17,6 +18,7 @@ var $a = {
 
     screen: undefined,
     board: undefined,
+    pointer: undefined,
 
     catchError: function(err){
         if ($e.deviceType === 'sf') {
@@ -28,6 +30,7 @@ var $a = {
     }
 };
 
+
 $a.Screen = (function(){
     var cls = function(){
         this._view = $('<div />').css({
@@ -36,10 +39,10 @@ $a.Screen = (function(){
             height: 416,
             backgroundColor: '#CCCCCC'
         });
-    };
+    }
 
     function __INITIALIZE(self){
-    };
+    }
 
     cls.prototype.draw = function(){};
 
@@ -49,7 +52,7 @@ $a.Screen = (function(){
         var obj = new this();
         __INITIALIZE(obj);
         return obj;
-    };
+    }
 
     return cls;
 })();
@@ -65,11 +68,14 @@ $a.Board = (function(){
             position: 'absolute',
             left: 4,
             bottom: 0,
-            width: $a.Ball.SIZE[0] * cls.EXTENT[0],
-            height: $a.Ball.SIZE[1] * cls.EXTENT[1],
+            width: this.getWidth(),
+            height: this.getHeight(),
             backgroundColor: '#EEEEEE'
         });
-    };
+    }
+
+    /** [top, left], top = 416 - 52 * 5 */
+    cls.POS = [156, 4];
 
     /** [cols, rows] */
     cls.EXTENT = [6, 5];
@@ -89,11 +95,11 @@ $a.Board = (function(){
     }
 
     cls.prototype.exchangeBalls = function(a, b){
-        if (!__areNeighbors(a, b)) throw new Error('exchangeBalls: Not neighbors');
+        //if (!__areNeighbors(a, b)) throw new Error('exchangeBalls: Not neighbors');
         var ballA = this.getBall(a);
-        var idxA = ballA.getIndex().clone();
+        var idxA = ballA.getIndex().slice();
         var ballB = this.getBall(b);
-        ballA.setIndex(ballB.getIndex().clone());
+        ballA.setIndex(ballB.getIndex().slice());
         ballB.setIndex(idxA);
     }
 
@@ -123,39 +129,42 @@ $a.Board = (function(){
 
     cls.prototype.resetBalls = function(){
         var self = this;
-        this._each(function(v, i, idx){
+        this.eachSquare(function(v, i, idx){
             self._appendBall(idx);
         });
-    };
+    }
+
+    cls.prototype.getWidth = function(){
+        return $a.Ball.SIZE[0] * cls.EXTENT[0];
+    }
+    cls.prototype.getHeight = function(){
+        return $a.Ball.SIZE[1] * cls.EXTENT[1];
+    }
 
     cls.prototype.draw = function(){
-        this._each(function(v){
+        this.eachSquare(function(v){
             v.draw();
         });
-    };
+    }
 
     cls.prototype.getView = function(){ return this._view };
 
-    cls.prototype._each = function(callback){
+    cls.prototype.eachSquare = function(callback){
         return this._squares.flatten().each(function(v, i){
             var idx = [~~(i / cls.EXTENT[0]), i % cls.EXTENT[0]];
             return callback(v, i, idx);
         });
-    };
+    }
 
-    /**
-     * @param a arr index
-     * @param b arr index
-     */
-    function __areNeighbors(a, b){
-        return $f.pointsToDistance(a, b) === 1;
-    };
+    //function __areNeighbors(a, b){
+    //    return $f.pointsToDistance(a, b) === 1;
+    //}
 
     cls.factory = function(){
         var obj = new this();
         __INITIALIZE(obj);
         return obj;
-    };
+    }
 
     return cls;
 })();
@@ -180,7 +189,7 @@ $a.Ball = (function(){
         }).bind('mousedown', {self:this}, __ONMOUSEDOWN)
             .bind('mouseup', {self:this}, __ONMOUSEUP)
             .bind('drag', {self:this}, __ONDRAG);
-    };
+    }
 
     /** [width, height] */
     cls.SIZE = [52, 52];
@@ -204,36 +213,36 @@ $a.Ball = (function(){
         heart: {
             styles: { backgroundColor:'pink' }
         }//,
-    };
+    }
 
     function __INITIALIZE(self){
         self.type = $f.randChoice(Object.keys(cls.TYPE_CHOICES));
-    };
+    }
 
     cls.prototype.setIndex = function(idx){
         this._index = idx;
-    };
+    }
 
     cls.prototype.getIndex = function(){
         return this._index;
-    };
+    }
     cls.prototype.getRowIndex = function(){
         return this._index[0];
-    };
+    }
     cls.prototype.getColumnIndex = function(){
         return this._index[1];
-    };
+    }
 
     /** @return [top, left] */
     cls.prototype.getPos = function(){
         return [cls.SIZE[1] * this.getRowIndex(), cls.SIZE[0] * this.getColumnIndex()];
-    };
+    }
     cls.prototype.getTop = function(){
         return this.getPos()[0];
-    };
+    }
     cls.prototype.getLeft = function(){
         return this.getPos()[1];
-    };
+    }
 
     cls.prototype.draw = function(){
         var master = cls.TYPE_CHOICES[this.type];
@@ -242,9 +251,9 @@ $a.Ball = (function(){
             left: this.getLeft(),
             backgroundColor: master.styles.backgroundColor
         });
-    };
+    }
 
-    cls.prototype.getView = function(){ return this._view };
+    cls.prototype.getView = function(){ return this._view }
 
     function __ONMOUSEDOWN(evt){
         var self = evt.data.self;
@@ -258,13 +267,46 @@ $a.Ball = (function(){
     }
     function __ONDRAG(evt){
         var self = evt.data.self;
+        var idx = $a.pointer.at(evt.pageY, evt.pageX);
+        $(evt.target).text(idx);
     }
 
     cls.factory = function(){
         var obj = new this();
         __INITIALIZE(obj);
         return obj;
-    };
+    }
+
+    return cls;
+})();
+
+
+$a.Pointer = (function(){
+    var cls = function(){
+        this._areas = [];
+    }
+
+    cls.KEY_DEFAULT = '__default__';
+
+    /** @param key mixed */
+    cls.prototype.setArea = function(key, top, left, width, height){
+        this._areas.push(Array.prototype.slice.apply(arguments));
+    }
+
+    cls.prototype.at = function(pageY, pageX){
+        var i, a;
+        for (i = 0; i < this._areas.length; i++) {
+            a = this._areas[i];
+            if (a[1] <= pageY && pageY < a[1] + a[4] &&
+                a[2] <= pageX && pageX < a[2] + a[3]) return a[0];
+        }
+        return cls.KEY_DEFAULT;
+    }
+
+    cls.factory = function(){
+        var obj = new this();
+        return obj;
+    }
 
     return cls;
 })();
@@ -281,6 +323,15 @@ $('#gamecontainer').append($a.screen.getView());
 $a.board = $a.Board.factory();
 $a.board.draw();
 $a.screen.getView().append($a.board.getView());
+
+$a.pointer = $a.Pointer.factory();
+$a.board.eachSquare(function(ball, notuse, idx){
+    var top = ball.getTop() + $a.Board.POS[0];
+    var left = ball.getLeft() + $a.Board.POS[1];
+    var width = $a.Ball.SIZE[0];
+    var height = $a.Ball.SIZE[1];
+    $a.pointer.setArea(idx.slice(), top, left, width, height);
+});
 
 return Deferred.next();
 

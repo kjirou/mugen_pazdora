@@ -18,6 +18,37 @@ $f.consoleLog = function(){
 //    return value;
 //};
 
+/** Format string like the Python 3
+    @example format('My name is {0}, {1} years old', 'kjirou', 34)
+             format('I like {0} and {1}', ['sushi', 'sukiyaki'])
+             format('{0.x} {1.y}', {x:11}, {y:22})
+    @author http://d.hatena.ne.jp/ajalabox/20110223/1298448703 */
+$f.format = function() {
+    var args, fmt, result;
+
+    args = Array.apply([], arguments);
+    fmt = typeof this === "string" ? this : args.shift();
+
+    if (args.length === 1 && typeof args[0] === "object") {
+        args = args[0];
+    };
+
+    result = fmt.replace(/{([^}]+)}/g, function (s, id) {
+        var chain = id.split("."), substr, i;
+        if (chain.length >= 2) {
+            substr = args[chain[0]];
+            for (i = 1; i < chain.length; i++) {
+                substr = substr[chain[i]];
+            }
+        } else {
+            substr = args[id];
+        }
+        return substr;
+    });
+
+    return result;
+};
+
 $f.randChoice = function(arr){
     return arr[Number.random(0, arr.length - 1)];
 };
@@ -328,36 +359,6 @@ $f.pointsToDistance = function(a, b){
 //    if (oper === 'lt' || oper === '<') return a < b;
 //};
 //
-///** Python3風文字列フォーマット操作関数
-//    @example format('My name is {0}, {1} years old', 'kjirou', 34)
-//             format('I like {0} and {1}', ['sushi', 'sukiyaki'])
-//             format('{0.x} {1.y}', {x:11}, {y:22})
-//    @author http://d.hatena.ne.jp/ajalabox/20110223/1298448703 */
-//$f.format = function() {
-//    var args, fmt, result;
-//
-//    args = Array.apply([], arguments);
-//    fmt = typeof this === "string" ? this : args.shift();
-//
-//    if (args.length === 1 && typeof args[0] === "object") {
-//        args = args[0];
-//    };
-//
-//    result = fmt.replace(/{([^}]+)}/g, function (s, id) {
-//        var chain = id.split("."), substr, i;
-//        if (chain.length >= 2) {
-//            substr = args[chain[0]];
-//            for (i = 1; i < chain.length; i++) {
-//                substr = substr[chain[i]];
-//            }
-//        } else {
-//            substr = args[id];
-//        }
-//        return substr;
-//    });
-//
-//    return result;
-//};
 //
 ///** 文字を一定文字数にて切り落とす */
 //$f.cutStr = function(str, max, suffix){
