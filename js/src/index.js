@@ -95,7 +95,7 @@ $a.Board = (function(){
                 self._squares[rowIndex][columnIndex] = null;
             });
         });
-        self.resetBalls();
+        self._resetBalls();
     }
 
     cls.prototype.getSquare = function(idx){
@@ -153,13 +153,27 @@ $a.Board = (function(){
         this._setBall(ballB, idxA);
     }
 
-
-    cls.prototype.resetBalls = function(){
+    cls.prototype._resetBalls = function(){
         var self = this;
         this.eachSquare(function(ball, i, idx){
             self._removeBall(idx);
             self._newBall(idx);
         });
+        // Remove 3-matched ball patterns
+        // !! Sync _runCombo, if you fix this code !!
+        var matcher;
+        while (true) {
+            matcher = $a.Matcher.factory();
+            matcher.match(this._squares);
+            if (matcher.getCombos().length > 0) {
+                matcher.getMatchedIndexes().each(function(idx){
+                    self._removeBall(idx);
+                });
+                self._fallBalls();
+            } else {
+                break;
+            }
+        }
     }
 
     /**
@@ -224,7 +238,7 @@ $a.Board = (function(){
      * @param arr movements See this._fallBalls()
      * @preturn deferred
      */
-    cls.prototype.runFallingBalls = function(movements){
+    cls.prototype._runFallingBalls = function(movements){
         var self = this;
         // Animate for each rows that is different from original,
         //   the reason is for a performance
@@ -264,6 +278,10 @@ $a.Board = (function(){
         var self = this;
         var deferred = new Deferred();
 
+        //
+        // !! Sync _resetBalls, if you fix this code !!
+        //
+
         var matcher = $a.Matcher.factory();
         matcher.match(this._squares);
         this._lastComboResults = this._lastComboResults.concat(matcher.getCombos());
@@ -286,7 +304,7 @@ $a.Board = (function(){
             });
             var movements = self._fallBalls();
             // Animation
-            return self.runFallingBalls(movements);
+            return self._runFallingBalls(movements);
         }).next(function(){
             deferred.call();
             return Deferred.next();
