@@ -73,6 +73,8 @@ $a.Board = (function(){
             overflow: 'hidden',
             backgroundColor: '#FFF'
         });
+
+        this._lastComboResults = [];
     }
 
     /** [top, left], top = 416 - 52 * 5 */
@@ -94,15 +96,6 @@ $a.Board = (function(){
             });
         });
         self.resetBalls();
-    }
-
-    cls.prototype.exchangeBalls = function(a, b){
-        var ballA = this.getBall(a);
-        var idxA = ballA.getIndex().slice();
-        var ballB = this.getBall(b);
-        var idxB = ballB.getIndex().slice();
-        this._setBall(ballA, idxB);
-        this._setBall(ballB, idxA);
     }
 
     cls.prototype.getSquare = function(idx){
@@ -150,6 +143,16 @@ $a.Board = (function(){
         this._setBall(this.getBall(fromIdx), toIdx);
         this._removeBall(fromIdx, drawing);
     }
+
+    cls.prototype.exchangeBalls = function(a, b){
+        var ballA = this.getBall(a);
+        var idxA = ballA.getIndex().slice();
+        var ballB = this.getBall(b);
+        var idxB = ballB.getIndex().slice();
+        this._setBall(ballA, idxB);
+        this._setBall(ballB, idxA);
+    }
+
 
     cls.prototype.resetBalls = function(){
         var self = this;
@@ -257,11 +260,13 @@ $a.Board = (function(){
         return deferred;
     }
 
-    cls.prototype.runCombo = function(){
+    cls.prototype._runCombo = function(){
         var self = this;
         var deferred = new Deferred();
+
         var matcher = $a.Matcher.factory();
         matcher.match(this._squares);
+        this._lastComboResults = this._lastComboResults.concat(matcher.getCombos());
 
         // Run disappearing ball animations
         Deferred.loop(matcher.getCombos().length, function(loopIndex){
@@ -280,13 +285,33 @@ $a.Board = (function(){
                 self._removeBall(idx);
             });
             var movements = self._fallBalls();
-            $a.board.draw();
             // Animation
-            return Deferred.next();
+            return self.runFallingBalls(movements);
         }).next(function(){
             deferred.call();
             return Deferred.next();
         }).error($a.catchError);
+
+        return deferred;
+    }
+
+    cls.prototype.runChainedCombo = function(){
+        var self = this;
+        var deferred = new Deferred();
+        this._lastComboResults = [];
+        var preComboCount = 0;
+        function __runCombo(){
+            self._runCombo().next(function(){
+                if (self._lastComboResults.length > preComboCount) {
+                    preComboCount = self._lastComboResults.length;
+                    setTimeout(__runCombo, 1);
+                } else {
+                    deferred.call();
+                }
+                return Deferred.next();
+            }).error($a.catchError);
+        }
+        setTimeout(__runCombo, 1);
         return deferred;
     }
 
@@ -428,7 +453,7 @@ $a.Ball = (function(){
             top: toPos[0],
             left: toPos[1]//,
         }, {
-            duration: 250,
+            duration: 200,
             easing: 'linear',
             complete: function(){
                 self._view.css({ zIndex:$a.Board.ZINDEXES.BALL });
@@ -452,7 +477,7 @@ $a.Ball = (function(){
         self.draw();
         self._isDragging = false;
         self._isRuningComboAnimation = true;
-        $a.board.runCombo().next(function(){
+        $a.board.runChainedCombo().next(function(){
             self._isRuningComboAnimation = false;
             return Deferred.next();
         }).error($a.catchError);
