@@ -70,6 +70,7 @@ $a.Board = (function(){
             bottom: 0,
             width: this.getWidth(),
             height: this.getHeight(),
+            overflow: 'hidden',
             backgroundColor: '#FFF'
         });
     }
@@ -82,6 +83,7 @@ $a.Board = (function(){
 
     cls.ZINDEXES = {};
     cls.ZINDEXES.HIGHEST_BALL = 100;
+    cls.ZINDEXES.MOVING_BALL = 10;
     cls.ZINDEXES.BALL = 1;
 
     function __INITIALIZE(self){
@@ -149,18 +151,12 @@ $a.Board = (function(){
         this._removeBall(fromIdx, drawing);
     }
 
-    cls.prototype.resetBalls = function(isSupplying){
+    cls.prototype.resetBalls = function(){
         var self = this;
-        isSupplying = (isSupplying === undefined)? false: true;
         this.eachSquare(function(ball, i, idx){
-            if (ball !== null && isSupplying) return true;
             self._removeBall(idx);
             self._newBall(idx);
         });
-    }
-
-    cls.prototype.supplyBalls = function(){
-        return this.resetBalls(true);
     }
 
     /**
@@ -219,6 +215,48 @@ $a.Board = (function(){
         return squares;
     }
 
+    /**
+     * Animate falling balls
+     *
+     * @param arr movements See this._fallBalls()
+     * @preturn deferred
+     */
+    cls.prototype.runFallingBalls = function(movements){
+        var self = this;
+        // Animate for each rows that is different from original,
+        //   the reason is for a performance
+        var movementEachRows = [];
+        (cls.EXTENT[1] - 1).downto(0, function(rowIndex){
+            movementEachRows.push(
+                movements.filter(function(movement){
+                    return movement[1][0] === rowIndex;
+                })
+            );
+        });
+        var deferred = new Deferred();
+        Deferred.loop(movementEachRows.length, function(loopIndex){
+            var stoppers = [Deferred.next()];
+            movementEachRows[loopIndex].each(function(movement){
+                var fromIdx = movement[0];
+                var toIdx = movement[1];
+                var ball = self.getBall(toIdx);
+                if (fromIdx !== null) {
+                    ball.draw({ index:fromIdx });
+                    stoppers.push(ball.runMoving(toIdx));
+                } else {
+                    fromIdx = [-1, toIdx[1]];
+                    ball.draw({ index:fromIdx });
+                    stoppers.push(ball.runMoving(toIdx));
+                }
+            });
+            return Deferred.parallel(stoppers);
+        }).next(function(){
+            deferred.call();
+            return Deferred.next();
+        }).error($a.catchError);
+        return deferred;
+    }
+
     cls.prototype.runCombo = function(){
         var self = this;
         var deferred = new Deferred();
@@ -235,14 +273,14 @@ $a.Board = (function(){
                 return d.wait(0.15);
             });
             return Deferred.parallel(stoppers);
-        // Remove and supply balls
+        // Remove and fall balls
         }).next(function(){
             // Data
-            var suppliedIndexes = matcher.getMatchedIndexes();
-            suppliedIndexes.each(function(idx){
+            matcher.getMatchedIndexes().each(function(idx){
                 self._removeBall(idx);
             });
-            self.supplyBalls();
+            var movements = self._fallBalls();
+            $a.board.draw();
             // Animation
             return Deferred.next();
         }).next(function(){
@@ -356,7 +394,7 @@ $a.Ball = (function(){
 
     /** @return [top, left] */
     cls.prototype.getPos = function(){
-        return [cls.SIZE[1] * this.getRowIndex(), cls.SIZE[0] * this.getColumnIndex()];
+        return cls._calculatePos(this.getIndex());
     }
     cls.prototype.getTop = function(){
         return this.getPos()[0];
@@ -365,17 +403,46 @@ $a.Ball = (function(){
         return this.getPos()[1];
     }
 
-    cls.prototype.draw = function(){
+    cls.prototype.draw = function(options){
+        var opts = Object.merge({
+            index: this.getIndex()
+        }, options || {});
+
         var master = cls.TYPE_CHOICES[this.type];
+        var pos = cls._calculatePos(opts.index);
         this._view.css({
-            top: this.getTop(),
-            left: this.getLeft(),
+            top: pos[0],
+            left: pos[1],
             backgroundColor: master.styles.backgroundColor,
             zIndex: $a.Board.ZINDEXES.BALL
         });
     }
 
+    cls.prototype.runMoving = function(toIdx){
+        var self = this;
+        var toPos = cls._calculatePos(toIdx);
+        var deferred = new Deferred();
+        this._view.css({
+            zIndex: $a.Board.ZINDEXES.MOVING_BALL//,
+        }).animate({
+            top: toPos[0],
+            left: toPos[1]//,
+        }, {
+            duration: 250,
+            easing: 'linear',
+            complete: function(){
+                self._view.css({ zIndex:$a.Board.ZINDEXES.BALL });
+                deferred.call();
+            }
+        });
+        return deferred;
+    }
+
     cls.prototype.getView = function(){ return this._view }
+
+    cls._calculatePos = function(idx){
+        return [cls.SIZE[1] * idx[0], cls.SIZE[0] * idx[1]];
+    }
 
     function __ONDRAGSTART(evt, self){
         self._isDragging = true;
