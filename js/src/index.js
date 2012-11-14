@@ -311,7 +311,6 @@ $a.Pointer = (function(){
 
     cls.KEY_DEFAULT = '__default__';
 
-    /** @param key mixed */
     cls.prototype.setArea = function(key, top, left, width, height){
         this._areas.push(Array.prototype.slice.apply(arguments));
     }
@@ -355,19 +354,26 @@ $a.Matcher = (function(){
             self._ballSets = self._ballSets.concat(ballSets);
         });
 
-        // Ball sets to combos
-
-            // .. join ball sets
-
-            // .. sort
+        // Make combos from ball sets
+        this._combos = __mergeBallSets(this._ballSets.slice());
+        this._combos.sort(function(a, b){// Order by 1) DESC rowIndex 2) DESC columnIndex
+            return __makeComboOrder(b) - __makeComboOrder(a);
+        });
+        function __makeComboOrder(ballSet){
+            var mostBottomLeftIdx = ballSet.indexes.max(function(idx){ return __idxToOrder(idx) });
+            return __idxToOrder(mostBottomLeftIdx);
+        }
+        function __idxToOrder(idx){
+            return idx[0] * 1000 - idx[1];
+        }
     }
 
     /**
      * Pick 3-matched ball sets in board for each a line
      *
-     * @param arr squaresOnLine Line of board._squares[n] that sliced vertical or horizontal
-     * @param str direction 'row' | 'column'
-     * @param int rowOrColumnIndex
+     * @param arr squaresOnLine Line of squares that sliced board vertical or horizontal
+     * @param str direction     'row' | 'column'
+     * @param int               rowOrColumnIndex
      * @return arr ex) [{ type:'aqua', indexes:[[0, 1], [0, 2], [0, 3], [0, 4]]}, ..]
      */
     function __pickBallSets(squaresOnLine, direction, rowOrColumnIndex){
@@ -415,6 +421,44 @@ $a.Matcher = (function(){
         });
 
         return ballSets;
+    }
+
+    /**
+     * Merge same type ball sets for making combos
+     */
+    function __mergeBallSets(ballSets){
+        var mergedBallSets = [];
+        var i, currentBallSet, result;
+        while (ballSets.length > 0) {
+            currentBallSet = ballSets.shift();
+            result = __findSameTypeAndMergeBallSet(currentBallSet, ballSets);
+            mergedBallSets.push(result[0]);
+            ballSets = result[1];
+        }
+        return mergedBallSets;
+
+        function __findSameTypeAndMergeBallSet(subject, ballSets){
+            var newBallSets = [];
+            ballSets.each(function(target){
+                if (__areNeighboringSameTypeBallSets(subject, target)) {
+                    subject.indexes = subject.indexes.union(target.indexes);
+                } else {
+                    newBallSets.push(target);
+                }
+            });
+            return [subject, newBallSets];
+        }
+
+        function __areNeighboringSameTypeBallSets(a, b){
+            if (a.type !== b.type) return false;
+            var ai, bi;
+            for (ai = 0; ai < a.indexes.length; ai++) {
+                for (bi = 0; bi < b.indexes.length; bi++) {
+                    if ($f.pointsToDistance(a.indexes[ai], b.indexes[bi]) <= 1) return true;
+                }
+            }
+            return false;
+        }
     }
 
     cls.factory = function(){
