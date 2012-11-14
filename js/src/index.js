@@ -9,7 +9,8 @@
  *             jQuery UI Touch Punch v0.2.2 <http://touchpunch.furf.com/>
  */
 var $e = {
-    deviceType: 'pc'
+    deviceType: 'pc',
+    mediaUrl: '.'
 };
 
 var $d = $f.consoleLog;
@@ -398,21 +399,27 @@ $a.Ball = (function(){
 
     cls.TYPE_CHOICES = {
         fire: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-fire.png',
             styles: { backgroundColor:'red' }
         },
         water: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-water.png',
             styles: { backgroundColor:'aqua' }
         },
         wood: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-wood.png',
             styles: { backgroundColor:'green' }
         },
         light: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-light.png',
             styles: { backgroundColor:'yellow' }
         },
         dark: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-dark.png',
             styles: { backgroundColor:'gray' }
         },
         heart: {
+            imgUrl: $e.mediaUrl + '/img/ball/ball-heart.png',
             styles: { backgroundColor:'pink' }
         }//,
     }
@@ -456,7 +463,8 @@ $a.Ball = (function(){
         this._view.css({
             top: pos[0],
             left: pos[1],
-            backgroundColor: master.styles.backgroundColor,
+            background: 'url(' + master.imgUrl + ')',
+            //backgroundColor: master.styles.backgroundColor,
             zIndex: $a.Board.ZINDEXES.BALL
         });
     }
