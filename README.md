@@ -1,4 +1,4 @@
-mugen_pazdora
+Mugen pazdora
 =============
 
 Under development:  
