@@ -70,7 +70,7 @@ $a.Board = (function(){
             bottom: 0,
             width: this.getWidth(),
             height: this.getHeight(),
-            backgroundColor: '#EEEEEE'
+            backgroundColor: '#FFF'
         });
     }
 
@@ -95,7 +95,6 @@ $a.Board = (function(){
     }
 
     cls.prototype.exchangeBalls = function(a, b){
-        //if (!__areNeighbors(a, b)) throw new Error('exchangeBalls: Not neighbors');
         var ballA = this.getBall(a);
         var idxA = ballA.getIndex().slice();
         var ballB = this.getBall(b);
@@ -121,24 +120,136 @@ $a.Board = (function(){
         return ball;
     }
 
-    cls.prototype._setBall = function(ball, idx){
+    cls.prototype._setBall = function(ball, idx, drawing){
+        var drawing = (drawing === undefined)? true: false;
         ball.setIndex(idx);
         this._squares[idx[0]][idx[1]] = ball;
-        this._view.append(ball.getView());
+        if (drawing) this._view.append(ball.getView());
     }
 
-    cls.prototype.resetBalls = function(){
+    cls.prototype._newBall = function(idx, drawing){
+        var newBall = $a.Ball.factory();
+        this._setBall(newBall, idx, drawing);
+    }
+
+    cls.prototype._removeBall = function(idx, drawing){
+        var drawing = (drawing === undefined)? true: false;
+        var ball = this.getSquare(idx);
+        if (ball === null) return;
+        this._squares[idx[0]][idx[1]] = null;
+        if (drawing) ball.getView().remove();
+    }
+
+    cls.prototype._moveBall = function(fromIdx, toIdx, drawing){
+        var to = this.getSquare(toIdx);
+        if (to !== null) {
+            throw new Error('Board._moveBall: invalid situation');
+        }
+        this._setBall(this.getBall(fromIdx), toIdx);
+        this._removeBall(fromIdx, drawing);
+    }
+
+    cls.prototype.resetBalls = function(isSupplying){
         var self = this;
-        this.eachSquare(function(v, i, idx){
-            var ball = $a.Ball.factory();
-            self._setBall(ball, idx);
+        isSupplying = (isSupplying === undefined)? false: true;
+        this.eachSquare(function(ball, i, idx){
+            if (ball !== null && isSupplying) return true;
+            self._removeBall(idx);
+            self._newBall(idx);
         });
     }
 
-    cls.prototype.startDisappearingBalls = function(){
+    cls.prototype.supplyBalls = function(){
+        return this.resetBalls(true);
+    }
+
+    /**
+     * Fall balls to blank square
+     *
+     * @return arr Ball movement data
+     *             [
+     *                 [[1, 0], [3, 0]], // (1,0) fall to (3,0)
+     *                 [null, [4, 1]],   // New ball fall to (4,1)
+     *                 ..
+     *             ]
+     */
+    cls.prototype._fallBalls = function(){
+        var self = this;
+        var movements = [];
+        cls.EXTENT[0].times(function(columnIndex){
+            var results = [];
+            (cls.EXTENT[1] - 1).downto(0, function(rowIndex){
+                results.push(__fallHere(self, [rowIndex, columnIndex]));
+            });
+            results = results.filter(function(result){
+                return result !== null;
+            });
+            movements = movements.concat(results);
+        });
+        return movements;
+
+        function __fallHere(self, idx){
+            if (self.getSquare(idx) !== null) return null;
+            var result = null;
+            self._getColumnSquares(idx[1]).reverse().filter(function(data){
+                return data[0][0] < idx[0]; // Compare other-square-rowIndex and here-square-rowIndex
+            }).each(function(upperSquareData){
+                var upperIdx = upperSquareData[0];
+                if (upperSquareData[1] !== null) {
+                    self._moveBall(upperIdx, idx, false);
+                    result = [upperIdx, idx];
+                    return false;
+                }
+            });
+            if (result === null) {
+                self._newBall(idx);
+                return [null, idx];
+            }
+            return result;
+        }
+    }
+
+    /** @return arr [[[0, 1], ball], [[1, 1], null], ..] */
+    cls.prototype._getColumnSquares = function(columnIndex){
+        var self = this;
+        var squares = [];
+        this._squares.each(function(row, rowIndex){
+            squares.push([[rowIndex, columnIndex], self._squares[rowIndex][columnIndex]]);
+        });
+        return squares;
+    }
+
+    cls.prototype.runCombo = function(){
+        var self = this;
+        var deferred = new Deferred();
         var matcher = $a.Matcher.factory();
         matcher.match(this._squares);
-        $d(matcher);
+
+        // Run disappearing ball animations
+        Deferred.loop(matcher.getCombos().length, function(loopIndex){
+            var combo = matcher.getCombos()[loopIndex];
+            var stoppers = combo.indexes.map(function(idx){
+                var d = new Deferred();
+                var ball = $a.board.getBall(idx);
+                ball.getView().fadeOut('normal', function(){ d.call() })
+                return d.wait(0.15);
+            });
+            return Deferred.parallel(stoppers);
+        // Remove and supply balls
+        }).next(function(){
+            // Data
+            var suppliedIndexes = matcher.getMatchedIndexes();
+            suppliedIndexes.each(function(idx){
+                self._removeBall(idx);
+            });
+            self.supplyBalls();
+            // Animation
+            return Deferred.next();
+        }).next(function(){
+            deferred.call();
+            return Deferred.next();
+        }).error($a.catchError);
+        return deferred;
     }
 
     cls.prototype.getWidth = function(){
@@ -163,10 +274,6 @@ $a.Board = (function(){
         });
     }
 
-    //function __areNeighbors(a, b){
-    //    return $f.pointsToDistance(a, b) === 1;
-    //}
-
     cls.factory = function(){
         var obj = new this();
         __INITIALIZE(obj);
@@ -187,6 +294,7 @@ $a.Ball = (function(){
         this.type = undefined;
 
         this._isDragging = false;
+        this._isRuningComboAnimation = false;
 
         this._view = $('<div />').css({
             position: 'absolute',
@@ -198,6 +306,10 @@ $a.Ball = (function(){
             start: function(evt){ return __ONDRAGSTART(evt, self) },
             stop: function(evt){ return __ONDRAGSTOP(evt, self) }
         }).bind('drag', {self:this}, __ONDRAG);
+    }
+
+    cls.prototype.toString = function(){
+        return 'Ball[' + this.type + '](' + this.getRowIndex() + ',' + this.getColumnIndex() + ')';
     }
 
     /** [width, height] */
@@ -270,11 +382,17 @@ $a.Ball = (function(){
         self._view.css({ zIndex:$a.Board.ZINDEXES.HIGHEST_BALL });
     }
     function __ONDRAGSTOP(evt, self){
-        self._isDragging = false;
         self.draw();
+        self._isDragging = false;
+        self._isRuningComboAnimation = true;
+        $a.board.runCombo().next(function(){
+            self._isRuningComboAnimation = false;
+            return Deferred.next();
+        }).error($a.catchError);
     }
     function __ONDRAG(evt){
         var self = evt.data.self;
+        if (self._isRuningComboAnimation) return false;
         var areaKey = self.getIndex().join(',');
         var nextAreaKey = $a.pointer.at(evt.pageY, evt.pageX);
         //$(evt.target).text(nextAreaKey + '/' + areaKey);
@@ -338,6 +456,18 @@ $a.Matcher = (function(){
     var cls = function(){
         this._ballSets = [];
         this._combos = [];
+    }
+
+    cls.prototype.getCombos = function(){ return this._combos }
+
+    cls.prototype.getMatchedIndexes = function(){
+        var list = [];
+        this._combos.each(function(combo){
+            combo.indexes.each(function(idx){
+                list.push(idx);
+            });
+        });
+        return list;
     }
 
     cls.prototype.match = function(squares){
