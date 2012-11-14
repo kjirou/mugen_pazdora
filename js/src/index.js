@@ -17,6 +17,7 @@ var $d = $f.consoleLog;
 
 var $a = {
 
+    player: undefined,
     screen: undefined,
     board: undefined,
     pointer: undefined,
@@ -32,6 +33,26 @@ var $a = {
 };
 
 
+$a.Player = (function(){
+    var cls = function(){
+        this.maxComboCount = 0;
+        this.totalComboCount = 0;
+        this.totalBallCount = 0;
+    }
+
+    function __INITIALIZE(self){
+    }
+
+    cls.factory = function(){
+        var obj = new this();
+        __INITIALIZE(obj);
+        return obj;
+    }
+
+    return cls;
+})();
+
+
 $a.Screen = (function(){
     var cls = function(){
         this._view = $('<div />').css({
@@ -40,12 +61,37 @@ $a.Screen = (function(){
             height: 416,
             backgroundColor: '#CCCCCC'
         });
+
+        this._dummyScoreboard = $('<div />').css({
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            width: 160,
+            height: 84,
+            lineHeight: '28px',
+            fontSize: '14px',
+            backgroundColor: '#FFF'
+        }).appendTo(this._view);
     }
 
     function __INITIALIZE(self){
     }
 
-    cls.prototype.draw = function(){};
+    cls.prototype.draw = function(){
+        this.drawDummyScoreboard();
+    };
+
+    cls.prototype.drawDummyScoreboard = function(options){
+        var opts = Object.merge({
+            maxComboCount: $a.player.maxComboCount,
+            totalComboCount: $a.player.totalComboCount,
+            totalBallCount: $a.player.totalBallCount//,
+        }, options || {});
+
+        var t = $f.format('Max combos: {0}\nTotal combos: {1}\nTotal balls: {2}',
+            opts.maxComboCount, opts.totalComboCount, opts.totalBallCount);
+        this._dummyScoreboard.html($f.nl2br(t));
+    }
 
     cls.prototype.getView = function(){ return this._view };
 
@@ -287,16 +333,21 @@ $a.Board = (function(){
         matcher.match(this._squares);
         this._lastComboResults = this._lastComboResults.concat(matcher.getCombos());
 
-        // Run disappearing ball animations
+        // Run disappearing ball animations with updating scores
         Deferred.loop(matcher.getCombos().length, function(loopIndex){
             var combo = matcher.getCombos()[loopIndex];
             var stoppers = combo.indexes.map(function(idx){
                 var d = new Deferred();
                 var ball = $a.board.getBall(idx);
                 ball.getView().fadeOut('normal', function(){ d.call() })
-                return d.wait(0.15);
+                return d;
             });
-            return Deferred.parallel(stoppers);
+            return Deferred.parallel(stoppers).next(function(){
+                $a.player.totalComboCount += 1;
+                $a.player.totalBallCount += combo.indexes.length;
+                $a.screen.drawDummyScoreboard();
+                return Deferred.wait(0.1);
+            });
         // Remove and fall balls
         }).next(function(){
             // Data
@@ -325,6 +376,10 @@ $a.Board = (function(){
                     preComboCount = self._lastComboResults.length;
                     setTimeout(__runCombo, 1);
                 } else {
+                    if (self._lastComboResults.length > $a.player.maxComboCount) {
+                        $a.player.maxComboCount = self._lastComboResults.length;
+                        $a.screen.drawDummyScoreboard();
+                    }
                     deferred.call();
                 }
                 return Deferred.next();
@@ -721,6 +776,8 @@ $a.Matcher = (function(){
 $a.init = function(){
 //{{{
 Deferred.next(function(){
+
+$a.player = $a.Player.factory();
 
 $a.screen = $a.Screen.factory();
 $a.screen.draw();
