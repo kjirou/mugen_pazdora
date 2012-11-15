@@ -1,10 +1,12 @@
-Mugen pazdora
+Mugen Pazdora
 =============
 
-Under development:  
-http://kjirou.net/mugen_pazdora/
+A "Puzzle & Dragons" clone by HTML5/JavaScript
+
+### Demo
+http://pub.kjirou.net/mugen_pazdora/
 
 
-Supported browsers:
+### Supported browsers
 - Google Chrome
 - Safari (iPhone4)
