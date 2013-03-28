@@ -9,4 +9,8 @@ http://pub.kjirou.net/mugen_pazdora/
 
 ### Supported browsers
 - Google Chrome
-- Safari (iPhone4)
+- Mobile Safari (iPhone4)
+
+
+### License
+MIT License
