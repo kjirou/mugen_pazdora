@@ -5,7 +5,7 @@ A "Puzzle & Dragons" clone by HTML5/JavaScript
 
 ## Demo
 
-http://kjirou.github.io/mugen_pazdora/
+https://kjirou.github.io/mugen_pazdora/
 
 
 ## Supported Browsers
